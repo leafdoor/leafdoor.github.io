@@ -344,9 +344,9 @@
             <!-- Mode selector for Calculator -->
             <div class="mode-selector">
                 <button class="mode-btn active" data-mode="standard">Standard</button>
+                <button class="mode-btn" data-mode="ti89">TI-89</button>
                 <button class="mode-btn" data-mode="trigonometry">Trigonometry</button>
                 <button class="mode-btn" data-mode="middle-school">Middle School</button>
-                <button class="mode-btn" data-mode="high-school">High School</button>
             </div>
 
             <div class="display-section">
@@ -511,6 +511,31 @@
                 { label: '=', action: 'equals', classes: 'equals-btn', span: 2 },
             ],
 
+            // TI-89 MODE: Type full expression, then press =
+            'ti89': [
+                // Row 1: Basic operators
+                { label: '÷', action: 'appendOperator', operator: '÷', classes: 'operator-btn' },
+                { label: '×', action: 'appendOperator', operator: '×', classes: 'operator-btn' },
+                { label: '−', action: 'appendOperator', operator: '-', classes: 'operator-btn' },
+                { label: '+', action: 'appendOperator', operator: '+', classes: 'operator-btn' },
+
+                // Row 2: Power and functions
+                { label: 'x^y', action: 'appendOperator', operator: '^', classes: 'operator-btn' },
+                { label: 'x²', action: 'square', classes: 'function-btn' },
+                { label: '√', action: 'sqrt', classes: 'function-btn' },
+                { label: '%', action: 'percent', classes: 'function-btn' },
+
+                // Row 3: Parentheses and functions
+                { label: '(', action: 'appendSymbol', value: '(', classes: 'function-btn' },
+                { label: ')', action: 'appendSymbol', value: ')', classes: 'function-btn' },
+                { label: '.', action: 'appendSymbol', value: '.', classes: 'number-btn' },
+                { label: '±', action: 'toggleSign', classes: 'function-btn' },
+
+                // Row 4: Clear and Equals
+                { label: 'CLEAR', action: 'clear', classes: 'clear-btn', span: 2 },
+                { label: '=', action: 'equals', classes: 'equals-btn', span: 2 },
+            ],
+
             // TRIGONOMETRY MODE: Includes trig functions and constants
             trigonometry: [
                 // Row 1: Trig functions
@@ -557,32 +582,6 @@
                 { label: 'CLEAR', action: 'clear', classes: 'clear-btn', span: 2 },
                 { label: '=', action: 'equals', classes: 'equals-btn', span: 2 },
             ],
-
-            // HIGH SCHOOL MODE: Extended scientific functions
-            'high-school': [
-                { label: 'sin', action: 'sine', classes: 'function-btn' },
-                { label: 'cos', action: 'cosine', classes: 'function-btn' },
-                { label: 'tan', action: 'tangent', classes: 'function-btn' },
-                { label: 'x^y', action: 'power', classes: 'function-btn' },
-
-                { label: 'ln', action: 'ln', classes: 'function-btn' },
-                { label: 'log', action: 'log', classes: 'function-btn' },
-                { label: 'π', action: 'pi', classes: 'function-btn' },
-                { label: 'e', action: 'euler', classes: 'function-btn' },
-
-                { label: '√', action: 'sqrt', classes: 'function-btn' },
-                { label: 'x²', action: 'square', classes: 'function-btn' },
-                { label: 'n!', action: 'factorial', classes: 'function-btn' },
-                { label: '|x|', action: 'abs', classes: 'function-btn' },
-
-                { label: '÷', action: 'operation', operator: '÷', classes: 'operator-btn' },
-                { label: '×', action: 'operation', operator: '×', classes: 'operator-btn' },
-                { label: '−', action: 'operation', operator: '-', classes: 'operator-btn' },
-                { label: '+', action: 'operation', operator: '+', classes: 'operator-btn' },
-
-                { label: 'CLEAR', action: 'clear', classes: 'clear-btn', span: 2 },
-                { label: '=', action: 'equals', classes: 'equals-btn', span: 2 },
-            ],
         };
 
         // ============================================================================
@@ -599,11 +598,6 @@
              * - previousValue: Previous numeric value
              * - operator: The pending operation (+, -, *, /)
              * - history: List of completed calculations
-             * 
-             * Separation of concerns:
-             * - Internal state: raw strings for display, numeric values for math
-             * - Display: formatting only (no state changes)
-             * - Execution: only happens on explicit user actions (=, equals)
              */
             constructor() {
                 this.currentInput = '0';        // What user sees typed
@@ -613,6 +607,7 @@
                 this.history = [];              // List of calculations
                 this.mode = 'standard';         // Current calculator mode
                 this.angleMode = 'degrees';     // 'degrees' or 'radians' for trig functions
+                this.expressionMode = false;    // For TI-89 mode: whether we're building an expression
                 
                 // DOM elements
                 this.currentDisplay = document.getElementById('currentDisplay');
@@ -677,10 +672,12 @@
 
             /**
              * Switch to a different calculator mode and re-render buttons
-             * @param {string} mode - 'standard', 'trigonometry', 'middle-school', or 'high-school'
+             * @param {string} mode - 'standard', 'ti89', 'trigonometry', or 'middle-school'
              */
             switchMode(mode) {
                 this.mode = mode;
+                this.expressionMode = (mode === 'ti89');
+                this.clear();
                 this.renderButtons();
             }
 
@@ -738,6 +735,13 @@
                 switch (action) {
                     case 'operation':
                         this.setOperator(operator);
+                        break;
+                    case 'appendOperator':
+                        // TI-89 mode: append operator to expression
+                        this.currentInput += ' ' + operator + ' ';
+                        break;
+                    case 'appendSymbol':
+                        this.currentInput += value;
                         break;
                     case 'equals':
                         this.compute();
@@ -827,16 +831,13 @@
                 // If current is just '0' and we're typing a real digit, replace it
                 if (this.currentInput === '0' && num !== '.' && typeof num === 'number') {
                     this.currentInput = num.toString();
-                    this.currentValue = num;
                 } else if (num === '.' && this.currentInput.includes('.')) {
                     // Don't add multiple decimal points
                     return;
                 } else if (num === '.') {
                     this.currentInput += '.';
-                    // currentValue will be updated via parseFloat when needed
                 } else if (typeof num === 'number') {
                     this.currentInput += num.toString();
-                    // currentValue will be updated via parseFloat when needed
                 } else if (typeof num === 'string') {
                     // For parentheses and constants
                     this.currentInput += num;
@@ -860,7 +861,6 @@
             appendConstant(symbol, value) {
                 if (this.currentInput === '0') {
                     this.currentInput = symbol;
-                    this.currentValue = value;
                 } else {
                     this.currentInput += symbol;
                 }
@@ -872,7 +872,6 @@
             deleteLastCharacter() {
                 if (this.currentInput.length === 1) {
                     this.currentInput = '0';
-                    this.currentValue = 0;
                 } else {
                     this.currentInput = this.currentInput.slice(0, -1);
                 }
@@ -900,13 +899,14 @@
                 this.currentValue = this.parseExpression(this.currentInput);
 
                 // If we already have a previous value and operator, compute first
-                if (this.previousValue !== 0 && this.operator !== null) {
+                if (this.operator !== null) {
                     this.compute();
-                    this.currentValue = this.previousValue;
+                } else {
+                    // Store for next operation
+                    this.previousValue = this.currentValue;
                 }
 
                 this.operator = op;
-                this.previousValue = this.currentValue;
                 this.currentInput = '';
             }
 
@@ -973,7 +973,6 @@
                 }
 
                 this.currentInput = this.formatForDisplay(value);
-                this.currentValue = value;
                 this.addHistory(`${functionName}(${this.currentInput}) = ${this.formatForDisplay(value)}`);
             }
 
@@ -984,7 +983,6 @@
                 const value = this.parseExpression(this.currentInput);
                 const newValue = value * -1;
                 this.currentInput = this.formatForDisplay(newValue);
-                this.currentValue = newValue;
             }
 
             /**
@@ -1011,7 +1009,16 @@
                 // Replace constants with actual values
                 expr = expr.replace(/π/g, Math.PI.toString());
                 expr = expr.replace(/e(?![0-9.])/g, Math.E.toString());
-                return parseFloat(expr) || 0;
+                // Replace symbolic operators with JS operators
+                expr = expr.replace(/×/g, '*');
+                expr = expr.replace(/÷/g, '/');
+                expr = expr.replace(/−/g, '-');
+                
+                try {
+                    return Function('"use strict"; return (' + expr + ')')();
+                } catch (e) {
+                    return 0;
+                }
             }
 
             /**
@@ -1035,48 +1042,55 @@
              * Only happens when user explicitly requests it (=)
              */
             compute() {
-                if (!this.operator || this.previousValue === 0 && this.currentValue === 0) {
-                    return;
-                }
-
-                // currentValue should already be parsed
-                if (typeof this.currentValue === 'string') {
-                    this.currentValue = this.parseExpression(this.currentValue);
-                }
-
-                let result;
-
-                // Perform the operation based on operator
-                switch (this.operator) {
-                    case '+':
-                        result = this.previousValue + this.currentValue;
-                        break;
-                    case '-':
-                        result = this.previousValue - this.currentValue;
-                        break;
-                    case '×':
-                        result = this.previousValue * this.currentValue;
-                        break;
-                    case '÷':
-                        result = this.currentValue !== 0 ? this.previousValue / this.currentValue : 0;
-                        break;
-                    case '^':
-                        result = Math.pow(this.previousValue, this.currentValue);
-                        break;
-                    default:
+                if (this.expressionMode) {
+                    // TI-89 mode: evaluate the entire expression
+                    const result = this.parseExpression(this.currentInput);
+                    this.addHistory(`${this.currentInput} = ${this.formatForDisplay(result)}`);
+                    this.currentInput = this.formatForDisplay(result);
+                    this.previousValue = 0;
+                    this.operator = null;
+                } else {
+                    // Standard mode: compute pending operation
+                    if (!this.operator || this.currentInput === '') {
                         return;
+                    }
+
+                    // Parse current input as number
+                    this.currentValue = this.parseExpression(this.currentInput);
+
+                    let result;
+
+                    // Perform the operation based on operator
+                    switch (this.operator) {
+                        case '+':
+                            result = this.previousValue + this.currentValue;
+                            break;
+                        case '-':
+                            result = this.previousValue - this.currentValue;
+                            break;
+                        case '×':
+                            result = this.previousValue * this.currentValue;
+                            break;
+                        case '÷':
+                            result = this.currentValue !== 0 ? this.previousValue / this.currentValue : 0;
+                            break;
+                        case '^':
+                            result = Math.pow(this.previousValue, this.currentValue);
+                            break;
+                        default:
+                            return;
+                    }
+
+                    // Record in history
+                    const prev = this.formatForDisplay(this.previousValue);
+                    const curr = this.formatForDisplay(this.currentValue);
+                    this.addHistory(`${prev} ${this.operator} ${curr} = ${this.formatForDisplay(result)}`);
+
+                    // Update state to show result
+                    this.currentInput = this.formatForDisplay(result);
+                    this.operator = null;
+                    this.previousValue = 0;
                 }
-
-                // Record in history
-                const prev = this.formatForDisplay(this.previousValue);
-                const curr = this.formatForDisplay(this.currentValue);
-                this.addHistory(`${prev} ${this.operator} ${curr} = ${this.formatForDisplay(result)}`);
-
-                // Update state to show result
-                this.currentInput = this.formatForDisplay(result);
-                this.currentValue = result;
-                this.operator = null;
-                this.previousValue = 0;
             }
 
             /**
@@ -1120,14 +1134,26 @@
                         this.appendDecimal();
                         this.updateDisplay();
                     } else if (e.key === '+' || e.key === '-') {
-                        this.setOperator(e.key === '+' ? '+' : '-');
+                        if (this.expressionMode) {
+                            this.currentInput += ' ' + e.key + ' ';
+                        } else {
+                            this.setOperator(e.key === '+' ? '+' : '-');
+                        }
                         this.updateDisplay();
                     } else if (e.key === '*') {
-                        this.setOperator('×');
+                        if (this.expressionMode) {
+                            this.currentInput += ' × ';
+                        } else {
+                            this.setOperator('×');
+                        }
                         this.updateDisplay();
                     } else if (e.key === '/') {
                         e.preventDefault();
-                        this.setOperator('÷');
+                        if (this.expressionMode) {
+                            this.currentInput += ' ÷ ';
+                        } else {
+                            this.setOperator('÷');
+                        }
                         this.updateDisplay();
                     } else if (e.key === 'Enter') {
                         e.preventDefault();
@@ -1150,8 +1176,8 @@
             updateDisplay() {
                 this.currentDisplay.textContent = this.currentInput || '0';
                 
-                // Show pending operation in previous operand
-                if (this.operator) {
+                // Show pending operation in previous operand (only for standard mode)
+                if (this.operator && !this.expressionMode) {
                     this.previousOperand.textContent = `${this.formatForDisplay(this.previousValue)} ${this.operator}`;
                 } else {
                     this.previousOperand.textContent = '';
