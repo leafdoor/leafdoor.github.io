@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Smart Calculator</title>
+    <title>Leafdoor Suite</title>
     <style>
         * {
             margin: 0;
@@ -21,7 +21,7 @@
             padding: 20px;
         }
 
-        .calculator-container {
+        .app-container {
             background: rgba(255, 255, 255, 0.95);
             backdrop-filter: blur(10px);
             border-radius: 30px;
@@ -42,6 +42,74 @@
             font-size: 24px;
             font-weight: 600;
             letter-spacing: 1px;
+            margin-bottom: 10px;
+        }
+
+        /* App selector tabs */
+        .app-tabs {
+            display: flex;
+            gap: 5px;
+            padding: 0 20px;
+            margin-top: 10px;
+            border-top: 1px solid rgba(255, 255, 255, 0.2);
+            padding-top: 10px;
+        }
+
+        .app-tab {
+            padding: 8px 16px;
+            border: none;
+            background: rgba(255, 255, 255, 0.1);
+            color: rgba(255, 255, 255, 0.7);
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 12px;
+            transition: all 0.2s ease;
+        }
+
+        .app-tab:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+
+        .app-tab.active {
+            background: rgba(255, 255, 255, 0.3);
+            color: white;
+        }
+
+        .app-tab:disabled {
+            opacity: 0.3;
+            cursor: not-allowed;
+        }
+
+        /* Mode selector */
+        .mode-selector {
+            display: flex;
+            gap: 10px;
+            padding: 15px 20px;
+            background: #f8f9fa;
+            border-bottom: 1px solid #e0e0e0;
+            flex-wrap: wrap;
+        }
+
+        .mode-btn {
+            padding: 8px 16px;
+            border: 2px solid #ddd;
+            background: white;
+            border-radius: 10px;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: 600;
+            transition: all 0.2s ease;
+            color: #333;
+        }
+
+        .mode-btn.active {
+            border-color: #667eea;
+            background: #667eea;
+            color: white;
+        }
+
+        .mode-btn:hover {
+            border-color: #667eea;
         }
 
         .display-section {
@@ -69,6 +137,7 @@
             display: flex;
             align-items: flex-end;
             justify-content: flex-end;
+            font-family: 'Monaco', 'Courier New', monospace;
         }
 
         .buttons-section {
@@ -97,6 +166,11 @@
         button:hover:not(:disabled) {
             transform: translateY(-2px);
             box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
+        }
+
+        button:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
         }
 
         .number-btn {
@@ -157,7 +231,7 @@
             background: linear-gradient(135deg, #ff8a46 0%, #ff5a78 100%);
         }
 
-        /* Mobile view: Show all buttons */
+        /* Mobile view: Show number buttons */
         .buttons-section {
             padding: 20px;
             display: grid;
@@ -202,9 +276,18 @@
             border-bottom: none;
         }
 
+        /* App visibility toggle */
+        .app-content {
+            display: none;
+        }
+
+        .app-content.active {
+            display: block;
+        }
+
         /* Responsive adjustments */
         @media (max-width: 480px) {
-            .calculator-container {
+            .app-container {
                 border-radius: 20px;
             }
 
@@ -225,11 +308,16 @@
                 gap: 10px;
                 padding: 15px;
             }
-        }
 
-        /* Keyboard input styling */
-        input[type="text"]:focus {
-            outline: none;
+            .mode-selector {
+                padding: 10px;
+                gap: 8px;
+            }
+
+            .mode-btn {
+                padding: 6px 12px;
+                font-size: 12px;
+            }
         }
 
         .keyboard-hint {
@@ -248,268 +336,573 @@
     </style>
 </head>
 <body>
-    <div class="calculator-container">
+    <div class="app-container">
         <div class="header">
-            <h1>✨ Smart Calculator</h1>
+            <h1>✨ Leafdoor Suite</h1>
+            <div class="app-tabs">
+                <button class="app-tab active" data-app="calculator">Calculator</button>
+                <button class="app-tab" data-app="solver" disabled title="Coming soon">Solver</button>
+                <button class="app-tab" data-app="graphing" disabled title="Coming soon">Graphing</button>
+            </div>
         </div>
 
-        <div class="display-section">
-            <div class="previous-operand" id="previousOperand"></div>
-            <div class="current-display" id="currentDisplay">0</div>
+        <!-- CALCULATOR APP -->
+        <div id="calculator-app" class="app-content active">
+            <!-- Mode selector for Calculator -->
+            <div class="mode-selector">
+                <button class="mode-btn active" data-mode="standard">Standard</button>
+                <button class="mode-btn" data-mode="trigonometry">Trigonometry</button>
+                <button class="mode-btn" data-mode="middle-school">Middle School</button>
+                <button class="mode-btn" data-mode="high-school">High School</button>
+            </div>
+
+            <div class="display-section">
+                <div class="previous-operand" id="previousOperand"></div>
+                <div class="current-display" id="currentDisplay">0</div>
+            </div>
+
+            <div class="buttons-section" id="buttonsSection">
+                <!-- Buttons will be dynamically generated based on mode -->
+            </div>
+
+            <div class="history-section" id="historySection">
+                <div style="text-align: center; color: #999;">Calculation history will appear here</div>
+            </div>
+
+            <div class="keyboard-hint">
+                💡 Tip: Use keyboard for quick input (numbers, +−×÷, Enter, Backspace)
+            </div>
         </div>
 
-        <div class="buttons-section" id="buttonsSection">
-            <!-- Mobile Number Buttons (0-9) -->
-            <button class="number-btn mobile-only" data-action="appendNumber">7</button>
-            <button class="number-btn mobile-only" data-action="appendNumber">8</button>
-            <button class="number-btn mobile-only" data-action="appendNumber">9</button>
-            <button class="function-btn" data-action="operation" data-operator="÷">÷</button>
-
-            <button class="number-btn mobile-only" data-action="appendNumber">4</button>
-            <button class="number-btn mobile-only" data-action="appendNumber">5</button>
-            <button class="number-btn mobile-only" data-action="appendNumber">6</button>
-            <button class="function-btn" data-action="operation" data-operator="×">×</button>
-
-            <button class="number-btn mobile-only" data-action="appendNumber">1</button>
-            <button class="number-btn mobile-only" data-action="appendNumber">2</button>
-            <button class="number-btn mobile-only" data-action="appendNumber">3</button>
-            <button class="function-btn" data-action="operation" data-operator="-">−</button>
-
-            <button class="number-btn mobile-only" data-action="appendNumber">0</button>
-            <button class="number-btn mobile-only" data-action="appendDecimal">.</button>
-            <button class="delete-btn" data-action="delete">⌫</button>
-            <button class="function-btn" data-action="operation" data-operator="+">+</button>
-
-            <!-- Desktop Advanced Buttons -->
-            <button class="function-btn" data-action="sqrt">√</button>
-            <button class="function-btn" data-action="square">x²</button>
-            <button class="function-btn" data-action="reciprocal">1/x</button>
-            <button class="function-btn" data-action="percent">%</button>
-
-            <button class="function-btn" data-action="sine">sin</button>
-            <button class="function-btn" data-action="cosine">cos</button>
-            <button class="function-btn" data-action="tangent">tan</button>
-            <button class="function-btn" data-action="toggleSign">±</button>
-
-            <button class="function-btn" data-action="ln">ln</button>
-            <button class="function-btn" data-action="log">log</button>
-            <button class="function-btn" data-action="pi">π</button>
-            <button class="function-btn" data-action="parenthesis" data-value="(">(</button>
-
-            <button class="function-btn" data-action="power">x^y</button>
-            <button class="function-btn" data-action="factorial">n!</button>
-            <button class="function-btn" data-action="euler">e</button>
-            <button class="function-btn" data-action="parenthesis" data-value=")">)</button>
-
-            <button class="clear-btn" data-action="clear">CLEAR</button>
-            <button class="equals-btn" data-action="equals">=</button>
+        <!-- SOLVER APP (Disabled for now) -->
+        <div id="solver-app" class="app-content">
+            <div style="padding: 40px 20px; text-align: center; color: #999;">
+                <p>Solver app coming soon!</p>
+            </div>
         </div>
 
-        <div class="history-section" id="historySection">
-            <div style="text-align: center; color: #999;">Calculation history will appear here</div>
-        </div>
-
-        <div class="keyboard-hint">
-            💡 Tip: Use keyboard for quick input (numbers, +−×÷, Enter, Backspace)
+        <!-- GRAPHING APP (Disabled for now) -->
+        <div id="graphing-app" class="app-content">
+            <div style="padding: 40px 20px; text-align: center; color: #999;">
+                <p>Graphing app coming soon!</p>
+            </div>
         </div>
     </div>
 
     <script>
-        class Calculator {
+        /**
+         * ============================================================================
+         * LEAFDOOR SUITE - Multi-App Calculator Platform
+         * ============================================================================
+         * 
+         * This application provides a modular, extensible platform for mathematical
+         * tools. Currently only the Calculator app is enabled.
+         * 
+         * Architecture:
+         * 1. AppManager - Handles switching between different apps (Calculator, Solver, etc.)
+         * 2. Calculator - Core calculator logic with multiple modes
+         * 3. ButtonGrids - Define different button layouts for each mode
+         * 4. Display Manager - Handles rendering output (separate from internal state)
+         * 
+         * Key Improvements:
+         * - Internal state stores raw calculations, display is only updated on action
+         * - Parse/format roundtrips eliminated: we convert once when needed
+         * - Mode system allows different button layouts and feature sets
+         * - Extensible app architecture for future additions
+         */
+
+        // ============================================================================
+        // APP MANAGER - Handles switching between apps
+        // ============================================================================
+        
+        class AppManager {
+            /**
+             * Manages app switching and initialization
+             */
             constructor() {
+                this.currentApp = 'calculator';
+                this.apps = {};
+                this.setupAppTabs();
+            }
+
+            registerApp(appName, appInstance) {
+                this.apps[appName] = appInstance;
+            }
+
+            setupAppTabs() {
+                const tabs = document.querySelectorAll('.app-tab');
+                tabs.forEach(tab => {
+                    tab.addEventListener('click', () => {
+                        if (tab.disabled) return;
+                        this.switchApp(tab.dataset.app);
+                    });
+                });
+            }
+
+            switchApp(appName) {
+                if (!this.apps[appName] || this.currentApp === appName) return;
+
+                // Hide current app
+                document.getElementById(`${this.currentApp}-app`).classList.remove('active');
+                document.querySelector(`[data-app="${this.currentApp}"]`).classList.remove('active');
+
+                // Show new app
+                this.currentApp = appName;
+                document.getElementById(`${this.currentApp}-app`).classList.add('active');
+                document.querySelector(`[data-app="${this.currentApp}"]`).classList.add('active');
+
+                // Initialize app if needed
+                if (this.apps[appName].init) {
+                    this.apps[appName].init();
+                }
+            }
+        }
+
+        // ============================================================================
+        // BUTTON GRID DEFINITIONS - Different button layouts for different modes
+        // ============================================================================
+        
+        /**
+         * Each mode defines which buttons are available and their layout.
+         * Button format: {label, action, operator?, value?}
+         * Actions: 'appendNumber', 'appendDecimal', 'operation', 'clear', 'delete',
+         *          'equals', or a function name like 'sqrt', 'sine', etc.
+         */
+        const BUTTON_GRIDS = {
+            // STANDARD MODE: Basic arithmetic operations suitable for everyday use
+            standard: [
+                // Row 1: Division, Multiply, Subtract, Add (upper operations)
+                { label: '÷', action: 'operation', operator: '÷', classes: 'operator-btn' },
+                { label: '×', action: 'operation', operator: '×', classes: 'operator-btn' },
+                { label: '−', action: 'operation', operator: '-', classes: 'operator-btn' },
+                { label: '+', action: 'operation', operator: '+', classes: 'operator-btn' },
+
+                // Row 2: Power, Square, Square Root, Percent
+                { label: 'x^y', action: 'power', classes: 'function-btn' },
+                { label: 'x²', action: 'square', classes: 'function-btn' },
+                { label: '√', action: 'sqrt', classes: 'function-btn' },
+                { label: '%', action: 'percent', classes: 'function-btn' },
+
+                // Row 3: Reciprocal, Toggle Sign, Parentheses
+                { label: '1/x', action: 'reciprocal', classes: 'function-btn' },
+                { label: '±', action: 'toggleSign', classes: 'function-btn' },
+                { label: '(', action: 'parenthesis', value: '(', classes: 'function-btn' },
+                { label: ')', action: 'parenthesis', value: ')', classes: 'function-btn' },
+
+                // Row 4: Clear and Equals
+                { label: 'CLEAR', action: 'clear', classes: 'clear-btn', span: 2 },
+                { label: '=', action: 'equals', classes: 'equals-btn', span: 2 },
+            ],
+
+            // TRIGONOMETRY MODE: Includes trig functions and constants
+            trigonometry: [
+                // Row 1: Trig functions
+                { label: 'sin', action: 'sine', classes: 'function-btn' },
+                { label: 'cos', action: 'cosine', classes: 'function-btn' },
+                { label: 'tan', action: 'tangent', classes: 'function-btn' },
+                { label: 'asin', action: 'arcsine', classes: 'function-btn' },
+
+                // Row 2: Inverse trig and logs
+                { label: 'acos', action: 'arccosine', classes: 'function-btn' },
+                { label: 'atan', action: 'arctangent', classes: 'function-btn' },
+                { label: 'ln', action: 'ln', classes: 'function-btn' },
+                { label: 'log', action: 'log', classes: 'function-btn' },
+
+                // Row 3: Constants and operations
+                { label: 'π', action: 'pi', classes: 'function-btn' },
+                { label: 'e', action: 'euler', classes: 'function-btn' },
+                { label: 'deg/rad', action: 'toggleAngleMode', classes: 'function-btn' },
+                { label: '1/x', action: 'reciprocal', classes: 'function-btn' },
+
+                // Row 4: Basic operations
+                { label: '÷', action: 'operation', operator: '÷', classes: 'operator-btn' },
+                { label: '×', action: 'operation', operator: '×', classes: 'operator-btn' },
+                { label: '−', action: 'operation', operator: '-', classes: 'operator-btn' },
+                { label: '+', action: 'operation', operator: '+', classes: 'operator-btn' },
+
+                // Row 5: Clear and Equals
+                { label: 'CLEAR', action: 'clear', classes: 'clear-btn', span: 2 },
+                { label: '=', action: 'equals', classes: 'equals-btn', span: 2 },
+            ],
+
+            // MIDDLE SCHOOL MODE: Limited to age-appropriate operations
+            'middle-school': [
+                { label: '÷', action: 'operation', operator: '÷', classes: 'operator-btn' },
+                { label: '×', action: 'operation', operator: '×', classes: 'operator-btn' },
+                { label: '−', action: 'operation', operator: '-', classes: 'operator-btn' },
+                { label: '+', action: 'operation', operator: '+', classes: 'operator-btn' },
+
+                { label: 'x²', action: 'square', classes: 'function-btn' },
+                { label: '√', action: 'sqrt', classes: 'function-btn' },
+                { label: '%', action: 'percent', classes: 'function-btn' },
+                { label: '1/x', action: 'reciprocal', classes: 'function-btn' },
+
+                { label: 'CLEAR', action: 'clear', classes: 'clear-btn', span: 2 },
+                { label: '=', action: 'equals', classes: 'equals-btn', span: 2 },
+            ],
+
+            // HIGH SCHOOL MODE: Extended scientific functions
+            'high-school': [
+                { label: 'sin', action: 'sine', classes: 'function-btn' },
+                { label: 'cos', action: 'cosine', classes: 'function-btn' },
+                { label: 'tan', action: 'tangent', classes: 'function-btn' },
+                { label: 'x^y', action: 'power', classes: 'function-btn' },
+
+                { label: 'ln', action: 'ln', classes: 'function-btn' },
+                { label: 'log', action: 'log', classes: 'function-btn' },
+                { label: 'π', action: 'pi', classes: 'function-btn' },
+                { label: 'e', action: 'euler', classes: 'function-btn' },
+
+                { label: '√', action: 'sqrt', classes: 'function-btn' },
+                { label: 'x²', action: 'square', classes: 'function-btn' },
+                { label: 'n!', action: 'factorial', classes: 'function-btn' },
+                { label: '|x|', action: 'abs', classes: 'function-btn' },
+
+                { label: '÷', action: 'operation', operator: '÷', classes: 'operator-btn' },
+                { label: '×', action: 'operation', operator: '×', classes: 'operator-btn' },
+                { label: '−', action: 'operation', operator: '-', classes: 'operator-btn' },
+                { label: '+', action: 'operation', operator: '+', classes: 'operator-btn' },
+
+                { label: 'CLEAR', action: 'clear', classes: 'clear-btn', span: 2 },
+                { label: '=', action: 'equals', classes: 'equals-btn', span: 2 },
+            ],
+        };
+
+        // ============================================================================
+        // CALCULATOR CLASS - Core calculation engine
+        // ============================================================================
+        
+        class Calculator {
+            /**
+             * Main calculator engine that handles all mathematical operations.
+             * 
+             * Key Design:
+             * - currentInput: Raw text being typed (not evaluated)
+             * - previousInput: Previous value (not evaluated)
+             * - operator: The pending operation (+, -, *, /)
+             * - history: List of completed calculations
+             * 
+             * Separation of concerns:
+             * - Internal state: raw strings and values
+             * - Display: formatting only (no state changes)
+             * - Execution: only happens on explicit user actions (=, equals)
+             */
+            constructor() {
+                this.currentInput = '0';      // What user is currently typing
+                this.previousInput = '';      // Value from before operator was pressed
+                this.operator = null;         // Current pending operator
+                this.history = [];            // List of calculations
+                this.mode = 'standard';       // Current calculator mode
+                this.angleMode = 'degrees';   // 'degrees' or 'radians' for trig functions
+                
+                // DOM elements
                 this.currentDisplay = document.getElementById('currentDisplay');
                 this.previousOperand = document.getElementById('previousOperand');
                 this.historySection = document.getElementById('historySection');
                 this.buttonsSection = document.getElementById('buttonsSection');
-
-                this.currentValue = '0';
-                this.previousValue = '';
-                this.operator = null;
-                this.history = [];
-
+                
                 this.setupEventListeners();
                 this.setupKeyboardListeners();
+                this.setupModeSelector();
+                this.renderButtons();
+                this.updateDisplay();
             }
 
+            /**
+             * Setup mode switching UI
+             */
+            setupModeSelector() {
+                const modeBtns = document.querySelectorAll('.mode-btn');
+                modeBtns.forEach(btn => {
+                    btn.addEventListener('click', () => {
+                        modeBtns.forEach(b => b.classList.remove('active'));
+                        btn.classList.add('active');
+                        this.switchMode(btn.dataset.mode);
+                    });
+                });
+            }
+
+            /**
+             * Switch to a different calculator mode and re-render buttons
+             * @param {string} mode - 'standard', 'trigonometry', 'middle-school', or 'high-school'
+             */
+            switchMode(mode) {
+                this.mode = mode;
+                this.renderButtons();
+            }
+
+            /**
+             * Dynamically render buttons based on current mode
+             * This happens when mode changes, so buttons are always appropriate
+             */
+            renderButtons() {
+                const grid = BUTTON_GRIDS[this.mode];
+                this.buttonsSection.innerHTML = '';
+
+                grid.forEach(buttonConfig => {
+                    const button = document.createElement('button');
+                    button.textContent = buttonConfig.label;
+                    button.className = buttonConfig.classes;
+                    
+                    // Add grid column span if specified
+                    if (buttonConfig.span) {
+                        button.style.gridColumn = `span ${buttonConfig.span}`;
+                    }
+
+                    // Store action and parameters for click handler
+                    button.dataset.action = buttonConfig.action;
+                    if (buttonConfig.operator) button.dataset.operator = buttonConfig.operator;
+                    if (buttonConfig.value) button.dataset.value = buttonConfig.value;
+
+                    this.buttonsSection.appendChild(button);
+                });
+            }
+
+            /**
+             * Attach button click handlers
+             */
             setupEventListeners() {
                 this.buttonsSection.addEventListener('click', (e) => {
                     if (e.target.tagName !== 'BUTTON') return;
 
                     const action = e.target.dataset.action;
-                    
-                    switch (action) {
-                        case 'appendNumber':
-                            this.appendNumber(e.target.textContent);
-                            break;
-                        case 'appendDecimal':
-                            this.appendDecimal();
-                            break;
-                        case 'operation':
-                            this.operation(e.target.dataset.operator);
-                            break;
-                        case 'equals':
-                            this.equals();
-                            break;
-                        case 'clear':
-                            this.clear();
-                            break;
-                        case 'delete':
-                            this.delete();
-                            break;
-                        case 'sqrt':
-                            this.applyFunction('sqrt');
-                            break;
-                        case 'square':
-                            this.applyFunction('square');
-                            break;
-                        case 'reciprocal':
-                            this.applyFunction('reciprocal');
-                            break;
-                        case 'percent':
-                            this.applyFunction('percent');
-                            break;
-                        case 'sine':
-                            this.applyFunction('sine');
-                            break;
-                        case 'cosine':
-                            this.applyFunction('cosine');
-                            break;
-                        case 'tangent':
-                            this.applyFunction('tangent');
-                            break;
-                        case 'toggleSign':
-                            this.toggleSign();
-                            break;
-                        case 'ln':
-                            this.applyFunction('ln');
-                            break;
-                        case 'log':
-                            this.applyFunction('log');
-                            break;
-                        case 'pi':
-                            this.appendNumber('π');
-                            break;
-                        case 'power':
-                            this.operation('^');
-                            break;
-                        case 'factorial':
-                            this.applyFunction('factorial');
-                            break;
-                        case 'euler':
-                            this.appendNumber('e');
-                            break;
-                        case 'parenthesis':
-                            this.appendNumber(e.target.dataset.value);
-                            break;
-                    }
+                    const operator = e.target.dataset.operator;
+                    const value = e.target.dataset.value;
 
+                    // Route to appropriate handler based on action
+                    this.handleAction(action, operator, value);
                     this.updateDisplay();
                 });
             }
 
-            setupKeyboardListeners() {
-                document.addEventListener('keydown', (e) => {
-                    if (/[0-9.]/.test(e.key)) {
-                        this.appendNumber(e.key);
-                    } else if (e.key === '+' || e.key === '-' || e.key === '*' || e.key === '/') {
-                        e.preventDefault();
-                        const opMap = { '*': '×', '/': '÷' };
-                        this.operation(opMap[e.key] || e.key);
-                    } else if (e.key === 'Enter' || e.key === '=') {
-                        e.preventDefault();
-                        this.equals();
-                    } else if (e.key === 'Backspace') {
-                        e.preventDefault();
-                        this.delete();
-                    } else if (e.key === 'Escape') {
+            /**
+             * Unified action handler routes to specific methods
+             * @param {string} action - Action type
+             * @param {string} operator - Operator symbol if applicable
+             * @param {string} value - Value if applicable
+             */
+            handleAction(action, operator, value) {
+                switch (action) {
+                    case 'appendNumber':
+                        // This is called from keyboard; button labels are used directly
+                        break;
+                    case 'operation':
+                        this.setOperator(operator);
+                        break;
+                    case 'equals':
+                        this.compute();
+                        break;
+                    case 'clear':
                         this.clear();
-                    }
-
-                    this.updateDisplay();
-                });
+                        break;
+                    case 'delete':
+                        this.deleteLastCharacter();
+                        break;
+                    case 'square':
+                        this.applyUnaryFunction('square');
+                        break;
+                    case 'sqrt':
+                        this.applyUnaryFunction('sqrt');
+                        break;
+                    case 'reciprocal':
+                        this.applyUnaryFunction('reciprocal');
+                        break;
+                    case 'percent':
+                        this.applyUnaryFunction('percent');
+                        break;
+                    case 'sine':
+                        this.applyUnaryFunction('sine');
+                        break;
+                    case 'cosine':
+                        this.applyUnaryFunction('cosine');
+                        break;
+                    case 'tangent':
+                        this.applyUnaryFunction('tangent');
+                        break;
+                    case 'arcsine':
+                        this.applyUnaryFunction('arcsine');
+                        break;
+                    case 'arccosine':
+                        this.applyUnaryFunction('arccosine');
+                        break;
+                    case 'arctangent':
+                        this.applyUnaryFunction('arctangent');
+                        break;
+                    case 'ln':
+                        this.applyUnaryFunction('ln');
+                        break;
+                    case 'log':
+                        this.applyUnaryFunction('log');
+                        break;
+                    case 'factorial':
+                        this.applyUnaryFunction('factorial');
+                        break;
+                    case 'abs':
+                        this.applyUnaryFunction('abs');
+                        break;
+                    case 'toggleSign':
+                        this.toggleSign();
+                        break;
+                    case 'toggleAngleMode':
+                        this.toggleAngleMode();
+                        break;
+                    case 'power':
+                        this.setOperator('^');
+                        break;
+                    case 'pi':
+                        this.appendNumber('π');
+                        break;
+                    case 'euler':
+                        this.appendNumber('e');
+                        break;
+                    case 'parenthesis':
+                        this.appendNumber(value);
+                        break;
+                }
             }
 
+            /**
+             * Toggle between degrees and radians for trigonometric functions
+             */
+            toggleAngleMode() {
+                this.angleMode = this.angleMode === 'degrees' ? 'radians' : 'degrees';
+                this.updateDisplay();
+            }
+
+            /**
+             * Append a number or constant to current input
+             * Only updates if explicitly called (no roundtrip parsing)
+             * @param {string} num - Number or constant to append
+             */
             appendNumber(num) {
-                if (this.currentValue === '0' && num !== '.' && num !== 'π' && num !== 'e') {
-                    this.currentValue = num;
-                } else if (num !== '.' || !this.currentValue.includes('.')) {
-                    this.currentValue += num;
+                // If current is just '0' and we're typing a real digit, replace it
+                if (this.currentInput === '0' && num !== '.' && num !== 'π' && num !== 'e' && num !== '(' && num !== ')') {
+                    this.currentInput = num;
+                } else if (num === '.' && this.currentInput.includes('.')) {
+                    // Don't add multiple decimal points
+                    return;
+                } else {
+                    this.currentInput += num;
                 }
             }
 
-            appendDecimal() {
-                if (!this.currentValue.includes('.')) {
-                    this.currentValue += '.';
+            /**
+             * Delete last character from current input
+             */
+            deleteLastCharacter() {
+                if (this.currentInput.length === 1) {
+                    this.currentInput = '0';
+                } else {
+                    this.currentInput = this.currentInput.slice(0, -1);
                 }
             }
 
-            delete() {
-                this.currentValue = this.currentValue.toString().slice(0, -1) || '0';
-            }
-
-            toggleSign() {
-                const val = parseFloat(this.currentValue);
-                this.currentValue = (val * -1).toString();
-            }
-
+            /**
+             * Clear everything and reset to initial state
+             */
             clear() {
-                this.currentValue = '0';
-                this.previousValue = '';
+                this.currentInput = '0';
+                this.previousInput = '';
                 this.operator = null;
             }
 
-            operation(op) {
-                if (this.currentValue === '') return;
-                
-                if (this.previousValue !== '') {
-                    this.equals();
+            /**
+             * Set an operator and prepare for next number
+             * If there's already an operator pending, compute first
+             * @param {string} op - Operator symbol
+             */
+            setOperator(op) {
+                if (this.currentInput === '') return;
+
+                // If we already have a previous value and operator, compute first
+                if (this.previousInput !== '' && this.operator !== null) {
+                    this.compute();
                 }
-                
+
                 this.operator = op;
-                this.previousValue = this.currentValue;
-                this.currentValue = '';
+                this.previousInput = this.currentInput;
+                this.currentInput = '';
             }
 
-            applyFunction(func) {
-                let val = this.evaluateExpression(this.currentValue);
-                
-                switch (func) {
-                    case 'sqrt':
-                        val = Math.sqrt(val);
-                        break;
+            /**
+             * Apply a unary function (operation on current value only)
+             * Examples: sqrt, sin, square, etc.
+             * @param {string} functionName - Name of function to apply
+             */
+            applyUnaryFunction(functionName) {
+                let value = this.parseExpression(this.currentInput);
+
+                switch (functionName) {
                     case 'square':
-                        val = val * val;
+                        value = value * value;
+                        break;
+                    case 'sqrt':
+                        value = Math.sqrt(value);
                         break;
                     case 'reciprocal':
-                        val = 1 / val;
+                        value = value !== 0 ? 1 / value : 0;
                         break;
                     case 'percent':
-                        val = val / 100;
+                        value = value / 100;
                         break;
                     case 'sine':
-                        val = Math.sin(val * Math.PI / 180);
+                        const angleInRadians = this.angleMode === 'degrees' ? 
+                            value * Math.PI / 180 : value;
+                        value = Math.sin(angleInRadians);
                         break;
                     case 'cosine':
-                        val = Math.cos(val * Math.PI / 180);
+                        const cosAngle = this.angleMode === 'degrees' ? 
+                            value * Math.PI / 180 : value;
+                        value = Math.cos(cosAngle);
                         break;
                     case 'tangent':
-                        val = Math.tan(val * Math.PI / 180);
+                        const tanAngle = this.angleMode === 'degrees' ? 
+                            value * Math.PI / 180 : value;
+                        value = Math.tan(tanAngle);
+                        break;
+                    case 'arcsine':
+                        value = Math.asin(value);
+                        if (this.angleMode === 'degrees') value = value * 180 / Math.PI;
+                        break;
+                    case 'arccosine':
+                        value = Math.acos(value);
+                        if (this.angleMode === 'degrees') value = value * 180 / Math.PI;
+                        break;
+                    case 'arctangent':
+                        value = Math.atan(value);
+                        if (this.angleMode === 'degrees') value = value * 180 / Math.PI;
                         break;
                     case 'ln':
-                        val = Math.log(val);
+                        value = Math.log(value);
                         break;
                     case 'log':
-                        val = Math.log10(val);
+                        value = Math.log10(value);
                         break;
                     case 'factorial':
-                        val = this.factorial(val);
+                        value = this.factorial(value);
+                        break;
+                    case 'abs':
+                        value = Math.abs(value);
                         break;
                 }
-                
-                this.currentValue = val.toString();
-                this.addHistory(`${func}(${this.previousValue || this.currentValue}) = ${val}`);
+
+                this.currentInput = value.toString();
+                this.addHistory(`${functionName}(${this.previousInput || this.currentInput}) = ${value}`);
             }
 
+            /**
+             * Toggle sign of current value (multiply by -1)
+             */
+            toggleSign() {
+                const value = this.parseExpression(this.currentInput);
+                this.currentInput = (value * -1).toString();
+            }
+
+            /**
+             * Compute factorial of n
+             * @param {number} n
+             * @returns {number} Factorial result
+             */
             factorial(n) {
                 if (n < 0) return NaN;
                 if (n === 0 || n === 1) return 1;
@@ -518,21 +911,49 @@
                 return result;
             }
 
-            evaluateExpression(expr) {
-                const piRegex = /π/g;
-                const eRegex = /e(?![0-9.])/g;
-                expr = expr.replace(piRegex, Math.PI.toString());
-                expr = expr.replace(eRegex, Math.E.toString());
+            /**
+             * Parse an expression string to a numeric value
+             * Handles constants like π and e
+             * @param {string} expr - Expression to parse
+             * @returns {number} Parsed value
+             */
+            parseExpression(expr) {
+                // Replace constants with actual values
+                expr = expr.replace(/π/g, Math.PI.toString());
+                expr = expr.replace(/e(?![0-9.])/g, Math.E.toString());
                 return parseFloat(expr) || 0;
             }
 
-            equals() {
-                if (!this.operator || this.previousValue === '' || this.currentValue === '') return;
+            /**
+             * Format a number for display
+             * If it's very long, use scientific notation
+             * @param {number} value
+             * @returns {string} Formatted value
+             */
+            formatForDisplay(value) {
+                if (typeof value === 'string') return value;
+                
+                const str = value.toString();
+                if (str.length > 15) {
+                    return value.toExponential(6);
+                }
+                return str;
+            }
+
+            /**
+             * Perform the pending calculation
+             * Only happens when user explicitly requests it (=)
+             */
+            compute() {
+                if (!this.operator || this.previousInput === '' || this.currentInput === '') {
+                    return;
+                }
 
                 let result;
-                const prev = this.evaluateExpression(this.previousValue);
-                const current = this.evaluateExpression(this.currentValue);
+                const prev = this.parseExpression(this.previousInput);
+                const current = this.parseExpression(this.currentInput);
 
+                // Perform the operation based on operator
                 switch (this.operator) {
                     case '+':
                         result = prev + current;
@@ -544,7 +965,7 @@
                         result = prev * current;
                         break;
                     case '÷':
-                        result = prev / current;
+                        result = current !== 0 ? prev / current : 0;
                         break;
                     case '^':
                         result = Math.pow(prev, current);
@@ -553,13 +974,19 @@
                         return;
                 }
 
-                this.addHistory(`${this.previousValue} ${this.operator} ${this.currentValue} = ${result}`);
-                
-                this.currentValue = result.toString();
+                // Record in history
+                this.addHistory(`${this.previousInput} ${this.operator} ${this.currentInput} = ${result}`);
+
+                // Update state to show result
+                this.currentInput = result.toString();
                 this.operator = null;
-                this.previousValue = '';
+                this.previousInput = '';
             }
 
+            /**
+             * Add calculation to history
+             * @param {string} entry - Calculation string to add
+             */
             addHistory(entry) {
                 this.history.unshift(entry);
                 if (this.history.length > 10) {
@@ -568,35 +995,81 @@
                 this.updateHistory();
             }
 
+            /**
+             * Update history display
+             */
             updateHistory() {
                 if (this.history.length === 0) {
                     this.historySection.innerHTML = '<div style="text-align: center; color: #999;">Calculation history will appear here</div>';
                 } else {
-                    this.historySection.innerHTML = this.history.map(h => `<div class="history-item">${h}</div>`).join('');
+                    this.historySection.innerHTML = this.history
+                        .map(h => `<div class="history-item">${h}</div>`)
+                        .join('');
                 }
             }
 
+            /**
+             * Update the display based on current state
+             * This is the ONLY place display updates happen
+             * Internal state never changes during display updates
+             */
             updateDisplay() {
-                // Format large numbers
-                let displayValue = this.currentValue;
-                if (displayValue.length > 15) {
-                    const num = parseFloat(displayValue);
-                    displayValue = num.toExponential(6);
-                }
-
+                let displayValue = this.formatForDisplay(this.currentInput);
                 this.currentDisplay.textContent = displayValue || '0';
-                
-                if (this.previousValue) {
-                    this.previousOperand.textContent = `${this.previousValue} ${this.operator || ''}`;
+
+                // Show the previous operand if we have one
+                if (this.previousInput) {
+                    this.previousOperand.textContent = `${this.previousInput} ${this.operator || ''}`;
                 } else {
                     this.previousOperand.textContent = '';
                 }
             }
+
+            /**
+             * Setup keyboard input support
+             */
+            setupKeyboardListeners() {
+                document.addEventListener('keydown', (e) => {
+                    if (/[0-9.]/.test(e.key)) {
+                        this.appendNumber(e.key);
+                    } else if (e.key === '+' || e.key === '-' || e.key === '*' || e.key === '/') {
+                        e.preventDefault();
+                        const opMap = { '*': '×', '/': '÷' };
+                        this.setOperator(opMap[e.key] || e.key);
+                    } else if (e.key === 'Enter' || e.key === '=') {
+                        e.preventDefault();
+                        this.compute();
+                    } else if (e.key === 'Backspace') {
+                        e.preventDefault();
+                        this.deleteLastCharacter();
+                    } else if (e.key === 'Escape') {
+                        this.clear();
+                    }
+
+                    this.updateDisplay();
+                });
+            }
         }
 
-        // Initialize calculator
-        const calculator = new Calculator();
-        calculator.updateDisplay();
+        // ============================================================================
+        // INITIALIZATION
+        // ============================================================================
+        
+        /**
+         * Initialize the app on page load
+         */
+        document.addEventListener('DOMContentLoaded', () => {
+            // Create app manager
+            const appManager = new AppManager();
+
+            // Initialize calculator
+            const calculator = new Calculator();
+            appManager.registerApp('calculator', calculator);
+
+            // Other apps are disabled for now - placeholder objects
+            appManager.registerApp('solver', { init: () => {} });
+            appManager.registerApp('graphing', { init: () => {} });
+        });
     </script>
 </body>
 </html>
