@@ -793,17 +793,51 @@
                 this.operator = null;
             }
 
+            /**
+             * setOperator: Handle operator button press
+             * - If we already have an operator and currentInput isn't empty, compute first
+             * - Then set the new operator for the next calculation
+             */
             setOperator(op) {
-                if (this.currentInput === '') return;
+                // If currentInput is empty or just "0", don't do anything
+                if (this.currentInput === '' || this.currentInput === '0') {
+                    this.operator = op;
+                    return;
+                }
 
+                // Parse the current input as a number
                 this.currentValue = this.parseExpression(this.currentInput);
 
-                if (this.operator !== null) {
-                    this.compute();
+                // If we already have a pending operator and a previous value, compute first!
+                if (this.operator !== null && this.previousValue !== 0) {
+                    let result;
+                    switch (this.operator) {
+                        case '+':
+                            result = this.previousValue + this.currentValue;
+                            break;
+                        case '-':
+                            result = this.previousValue - this.currentValue;
+                            break;
+                        case '×':
+                            result = this.previousValue * this.currentValue;
+                            break;
+                        case '÷':
+                            result = this.currentValue !== 0 ? this.previousValue / this.currentValue : 0;
+                            break;
+                        case '^':
+                            result = Math.pow(this.previousValue, this.currentValue);
+                            break;
+                        default:
+                            result = this.currentValue;
+                    }
+                    this.currentValue = result;
+                    this.currentInput = this.formatForDisplay(result);
                 } else {
+                    // First operator or after equals
                     this.previousValue = this.currentValue;
                 }
 
+                // Set the new operator and clear input for next number
                 this.operator = op;
                 this.currentInput = '';
             }
