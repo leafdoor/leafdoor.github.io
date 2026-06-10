@@ -176,6 +176,7 @@
         .number-btn {
             background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
             color: #333;
+            text-transform: none;
         }
 
         .number-btn:hover:not(:disabled) {
@@ -231,22 +232,14 @@
             background: linear-gradient(135deg, #ff8a46 0%, #ff5a78 100%);
         }
 
-        /* Mobile view: Show number buttons */
-        .buttons-section {
-            padding: 20px;
+        /* Mobile only: Show number buttons and delete button */
+        .mobile-number-row {
             display: grid;
             grid-template-columns: repeat(4, 1fr);
             gap: 12px;
+            padding: 0;
         }
 
-        /* Desktop view: Hide basic operation buttons */
-        @media (min-width: 768px) {
-            .number-btn {
-                display: none;
-            }
-        }
-
-        /* Mobile only buttons */
         .mobile-only {
             display: block;
         }
@@ -365,6 +358,30 @@
                 <!-- Buttons will be dynamically generated based on mode -->
             </div>
 
+            <!-- Mobile number pad (shown only on mobile) -->
+            <div id="mobileNumberPad" style="display: none; padding: 0 20px 20px 20px;">
+                <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px;">
+                    <button class="number-btn" data-action="appendNumber" data-number="7">7</button>
+                    <button class="number-btn" data-action="appendNumber" data-number="8">8</button>
+                    <button class="number-btn" data-action="appendNumber" data-number="9">9</button>
+                    <button class="delete-btn" data-action="delete">←</button>
+
+                    <button class="number-btn" data-action="appendNumber" data-number="4">4</button>
+                    <button class="number-btn" data-action="appendNumber" data-number="5">5</button>
+                    <button class="number-btn" data-action="appendNumber" data-number="6">6</button>
+                    <button class="operator-btn" data-action="operation" data-operator="×">×</button>
+
+                    <button class="number-btn" data-action="appendNumber" data-number="1">1</button>
+                    <button class="number-btn" data-action="appendNumber" data-number="2">2</button>
+                    <button class="number-btn" data-action="appendNumber" data-number="3">3</button>
+                    <button class="operator-btn" data-action="operation" data-operator="÷">÷</button>
+
+                    <button class="number-btn" data-action="appendNumber" data-number="0" style="grid-column: span 2;">0</button>
+                    <button class="number-btn" data-action="appendDecimal">.</button>
+                    <button class="operator-btn" data-action="operation" data-operator="+">+</button>
+                </div>
+            </div>
+
             <div class="history-section" id="historySection">
                 <div style="text-align: center; color: #999;">Calculation history will appear here</div>
             </div>
@@ -405,10 +422,11 @@
          * 4. Display Manager - Handles rendering output (separate from internal state)
          * 
          * Key Improvements:
-         * - Internal state stores raw calculations, display is only updated on action
-         * - Parse/format roundtrips eliminated: we convert once when needed
+         * - Internal state stores numeric values, not parsed strings
+         * - Parse/format roundtrips eliminated: we work with numbers directly
          * - Mode system allows different button layouts and feature sets
          * - Extensible app architecture for future additions
+         * - Mobile number pad for easy touch input on phones
          */
 
         // ============================================================================
@@ -465,8 +483,7 @@
         /**
          * Each mode defines which buttons are available and their layout.
          * Button format: {label, action, operator?, value?}
-         * Actions: 'appendNumber', 'appendDecimal', 'operation', 'clear', 'delete',
-         *          'equals', or a function name like 'sqrt', 'sine', etc.
+         * Actions: 'operation', 'clear', 'delete', 'equals', or a function name like 'sqrt', 'sine', etc.
          */
         const BUTTON_GRIDS = {
             // STANDARD MODE: Basic arithmetic operations suitable for everyday use
@@ -577,35 +594,71 @@
              * Main calculator engine that handles all mathematical operations.
              * 
              * Key Design:
-             * - currentInput: Raw text being typed (not evaluated)
-             * - previousInput: Previous value (not evaluated)
+             * - currentInput: Raw string being typed (displayed to user)
+             * - currentValue: Actual numeric value (used for calculations)
+             * - previousValue: Previous numeric value
              * - operator: The pending operation (+, -, *, /)
              * - history: List of completed calculations
              * 
              * Separation of concerns:
-             * - Internal state: raw strings and values
+             * - Internal state: raw strings for display, numeric values for math
              * - Display: formatting only (no state changes)
              * - Execution: only happens on explicit user actions (=, equals)
              */
             constructor() {
-                this.currentInput = '0';      // What user is currently typing
-                this.previousInput = '';      // Value from before operator was pressed
-                this.operator = null;         // Current pending operator
-                this.history = [];            // List of calculations
-                this.mode = 'standard';       // Current calculator mode
-                this.angleMode = 'degrees';   // 'degrees' or 'radians' for trig functions
+                this.currentInput = '0';        // What user sees typed
+                this.currentValue = 0;          // Actual numeric value (NO STRING ROUNDTRIPS!)
+                this.previousValue = 0;         // Value from before operator was pressed
+                this.operator = null;           // Current pending operator
+                this.history = [];              // List of calculations
+                this.mode = 'standard';         // Current calculator mode
+                this.angleMode = 'degrees';     // 'degrees' or 'radians' for trig functions
                 
                 // DOM elements
                 this.currentDisplay = document.getElementById('currentDisplay');
                 this.previousOperand = document.getElementById('previousOperand');
                 this.historySection = document.getElementById('historySection');
                 this.buttonsSection = document.getElementById('buttonsSection');
+                this.mobileNumberPad = document.getElementById('mobileNumberPad');
                 
                 this.setupEventListeners();
                 this.setupKeyboardListeners();
                 this.setupModeSelector();
+                this.setupMobileDetection();
                 this.renderButtons();
                 this.updateDisplay();
+            }
+
+            /**
+             * Detect mobile and show/hide number pad accordingly
+             */
+            setupMobileDetection() {
+                const isMobile = () => window.innerWidth < 768;
+                const updateMobileView = () => {
+                    this.mobileNumberPad.style.display = isMobile() ? 'block' : 'none';
+                };
+                
+                updateMobileView();
+                window.addEventListener('resize', updateMobileView);
+
+                // Setup mobile number pad listeners
+                this.mobileNumberPad.addEventListener('click', (e) => {
+                    if (e.target.tagName !== 'BUTTON') return;
+                    const action = e.target.dataset.action;
+                    const number = e.target.dataset.number;
+                    const operator = e.target.dataset.operator;
+
+                    if (action === 'appendNumber') {
+                        this.appendNumberDirect(parseInt(number));
+                    } else if (action === 'appendDecimal') {
+                        this.appendDecimal();
+                    } else if (action === 'operation') {
+                        this.setOperator(operator);
+                    } else if (action === 'delete') {
+                        this.deleteLastCharacter();
+                    }
+                    this.updateDisplay();
+                });
             }
 
             /**
@@ -683,9 +736,6 @@
              */
             handleAction(action, operator, value) {
                 switch (action) {
-                    case 'appendNumber':
-                        // This is called from keyboard; button labels are used directly
-                        break;
                     case 'operation':
                         this.setOperator(operator);
                         break;
@@ -750,13 +800,13 @@
                         this.setOperator('^');
                         break;
                     case 'pi':
-                        this.appendNumber('π');
+                        this.appendConstant('π', Math.PI);
                         break;
                     case 'euler':
-                        this.appendNumber('e');
+                        this.appendConstant('e', Math.E);
                         break;
                     case 'parenthesis':
-                        this.appendNumber(value);
+                        this.appendNumberDirect(value);
                         break;
                 }
             }
@@ -770,19 +820,49 @@
             }
 
             /**
-             * Append a number or constant to current input
-             * Only updates if explicitly called (no roundtrip parsing)
-             * @param {string} num - Number or constant to append
+             * Append a number digit directly (numeric, not string roundtrip)
+             * @param {number|string} num - Digit to append
              */
-            appendNumber(num) {
+            appendNumberDirect(num) {
                 // If current is just '0' and we're typing a real digit, replace it
-                if (this.currentInput === '0' && num !== '.' && num !== 'π' && num !== 'e' && num !== '(' && num !== ')') {
-                    this.currentInput = num;
+                if (this.currentInput === '0' && num !== '.' && typeof num === 'number') {
+                    this.currentInput = num.toString();
+                    this.currentValue = num;
                 } else if (num === '.' && this.currentInput.includes('.')) {
                     // Don't add multiple decimal points
                     return;
-                } else {
+                } else if (num === '.') {
+                    this.currentInput += '.';
+                    // currentValue will be updated via parseFloat when needed
+                } else if (typeof num === 'number') {
+                    this.currentInput += num.toString();
+                    // currentValue will be updated via parseFloat when needed
+                } else if (typeof num === 'string') {
+                    // For parentheses and constants
                     this.currentInput += num;
+                }
+            }
+
+            /**
+             * Append decimal point
+             */
+            appendDecimal() {
+                if (!this.currentInput.includes('.')) {
+                    this.currentInput += '.';
+                }
+            }
+
+            /**
+             * Append a constant (π, e) - stores both symbol and value
+             * @param {string} symbol - Symbol to display
+             * @param {number} value - Numeric value
+             */
+            appendConstant(symbol, value) {
+                if (this.currentInput === '0') {
+                    this.currentInput = symbol;
+                    this.currentValue = value;
+                } else {
+                    this.currentInput += symbol;
                 }
             }
 
@@ -792,6 +872,7 @@
             deleteLastCharacter() {
                 if (this.currentInput.length === 1) {
                     this.currentInput = '0';
+                    this.currentValue = 0;
                 } else {
                     this.currentInput = this.currentInput.slice(0, -1);
                 }
@@ -802,7 +883,8 @@
              */
             clear() {
                 this.currentInput = '0';
-                this.previousInput = '';
+                this.currentValue = 0;
+                this.previousValue = 0;
                 this.operator = null;
             }
 
@@ -814,13 +896,17 @@
             setOperator(op) {
                 if (this.currentInput === '') return;
 
+                // Parse current input as number
+                this.currentValue = this.parseExpression(this.currentInput);
+
                 // If we already have a previous value and operator, compute first
-                if (this.previousInput !== '' && this.operator !== null) {
+                if (this.previousValue !== 0 && this.operator !== null) {
                     this.compute();
+                    this.currentValue = this.previousValue;
                 }
 
                 this.operator = op;
-                this.previousInput = this.currentInput;
+                this.previousValue = this.currentValue;
                 this.currentInput = '';
             }
 
@@ -886,8 +972,9 @@
                         break;
                 }
 
-                this.currentInput = value.toString();
-                this.addHistory(`${functionName}(${this.previousInput || this.currentInput}) = ${value}`);
+                this.currentInput = this.formatForDisplay(value);
+                this.currentValue = value;
+                this.addHistory(`${functionName}(${this.currentInput}) = ${this.formatForDisplay(value)}`);
             }
 
             /**
@@ -895,7 +982,9 @@
              */
             toggleSign() {
                 const value = this.parseExpression(this.currentInput);
-                this.currentInput = (value * -1).toString();
+                const newValue = value * -1;
+                this.currentInput = this.formatForDisplay(newValue);
+                this.currentValue = newValue;
             }
 
             /**
@@ -904,6 +993,7 @@
              * @returns {number} Factorial result
              */
             factorial(n) {
+                n = Math.floor(n);
                 if (n < 0) return NaN;
                 if (n === 0 || n === 1) return 1;
                 let result = 1;
@@ -945,42 +1035,48 @@
              * Only happens when user explicitly requests it (=)
              */
             compute() {
-                if (!this.operator || this.previousInput === '' || this.currentInput === '') {
+                if (!this.operator || this.previousValue === 0 && this.currentValue === 0) {
                     return;
                 }
 
+                // currentValue should already be parsed
+                if (typeof this.currentValue === 'string') {
+                    this.currentValue = this.parseExpression(this.currentValue);
+                }
+
                 let result;
-                const prev = this.parseExpression(this.previousInput);
-                const current = this.parseExpression(this.currentInput);
 
                 // Perform the operation based on operator
                 switch (this.operator) {
                     case '+':
-                        result = prev + current;
+                        result = this.previousValue + this.currentValue;
                         break;
                     case '-':
-                        result = prev - current;
+                        result = this.previousValue - this.currentValue;
                         break;
                     case '×':
-                        result = prev * current;
+                        result = this.previousValue * this.currentValue;
                         break;
                     case '÷':
-                        result = current !== 0 ? prev / current : 0;
+                        result = this.currentValue !== 0 ? this.previousValue / this.currentValue : 0;
                         break;
                     case '^':
-                        result = Math.pow(prev, current);
+                        result = Math.pow(this.previousValue, this.currentValue);
                         break;
                     default:
                         return;
                 }
 
                 // Record in history
-                this.addHistory(`${this.previousInput} ${this.operator} ${this.currentInput} = ${result}`);
+                const prev = this.formatForDisplay(this.previousValue);
+                const curr = this.formatForDisplay(this.currentValue);
+                this.addHistory(`${prev} ${this.operator} ${curr} = ${this.formatForDisplay(result)}`);
 
                 // Update state to show result
-                this.currentInput = result.toString();
+                this.currentInput = this.formatForDisplay(result);
+                this.currentValue = result;
                 this.operator = null;
-                this.previousInput = '';
+                this.previousValue = 0;
             }
 
             /**
@@ -1001,53 +1097,65 @@
             updateHistory() {
                 if (this.history.length === 0) {
                     this.historySection.innerHTML = '<div style="text-align: center; color: #999;">Calculation history will appear here</div>';
-                } else {
-                    this.historySection.innerHTML = this.history
-                        .map(h => `<div class="history-item">${h}</div>`)
-                        .join('');
+                    return;
                 }
+
+                this.historySection.innerHTML = this.history
+                    .map(item => `<div class="history-item">${item}</div>`)
+                    .join('');
             }
 
             /**
-             * Update the display based on current state
-             * This is the ONLY place display updates happen
-             * Internal state never changes during display updates
-             */
-            updateDisplay() {
-                let displayValue = this.formatForDisplay(this.currentInput);
-                this.currentDisplay.textContent = displayValue || '0';
-
-                // Show the previous operand if we have one
-                if (this.previousInput) {
-                    this.previousOperand.textContent = `${this.previousInput} ${this.operator || ''}`;
-                } else {
-                    this.previousOperand.textContent = '';
-                }
-            }
-
-            /**
-             * Setup keyboard input support
+             * Keyboard input handler
              */
             setupKeyboardListeners() {
                 document.addEventListener('keydown', (e) => {
-                    if (/[0-9.]/.test(e.key)) {
-                        this.appendNumber(e.key);
-                    } else if (e.key === '+' || e.key === '-' || e.key === '*' || e.key === '/') {
+                    // Only handle if calculator is active
+                    if (!document.getElementById('calculator-app').classList.contains('active')) return;
+
+                    if (e.key >= '0' && e.key <= '9') {
+                        this.appendNumberDirect(parseInt(e.key));
+                        this.updateDisplay();
+                    } else if (e.key === '.') {
+                        this.appendDecimal();
+                        this.updateDisplay();
+                    } else if (e.key === '+' || e.key === '-') {
+                        this.setOperator(e.key === '+' ? '+' : '-');
+                        this.updateDisplay();
+                    } else if (e.key === '*') {
+                        this.setOperator('×');
+                        this.updateDisplay();
+                    } else if (e.key === '/') {
                         e.preventDefault();
-                        const opMap = { '*': '×', '/': '÷' };
-                        this.setOperator(opMap[e.key] || e.key);
-                    } else if (e.key === 'Enter' || e.key === '=') {
+                        this.setOperator('÷');
+                        this.updateDisplay();
+                    } else if (e.key === 'Enter') {
                         e.preventDefault();
                         this.compute();
+                        this.updateDisplay();
                     } else if (e.key === 'Backspace') {
                         e.preventDefault();
                         this.deleteLastCharacter();
+                        this.updateDisplay();
                     } else if (e.key === 'Escape') {
                         this.clear();
+                        this.updateDisplay();
                     }
-
-                    this.updateDisplay();
                 });
+            }
+
+            /**
+             * Update display to show current state
+             */
+            updateDisplay() {
+                this.currentDisplay.textContent = this.currentInput || '0';
+                
+                // Show pending operation in previous operand
+                if (this.operator) {
+                    this.previousOperand.textContent = `${this.formatForDisplay(this.previousValue)} ${this.operator}`;
+                } else {
+                    this.previousOperand.textContent = '';
+                }
             }
         }
 
@@ -1055,21 +1163,12 @@
         // INITIALIZATION
         // ============================================================================
         
-        /**
-         * Initialize the app on page load
-         */
-        document.addEventListener('DOMContentLoaded', () => {
-            // Create app manager
-            const appManager = new AppManager();
+        // Initialize app manager
+        const appManager = new AppManager();
 
-            // Initialize calculator
-            const calculator = new Calculator();
-            appManager.registerApp('calculator', calculator);
-
-            // Other apps are disabled for now - placeholder objects
-            appManager.registerApp('solver', { init: () => {} });
-            appManager.registerApp('graphing', { init: () => {} });
-        });
+        // Initialize calculator and register with app manager
+        const calculator = new Calculator();
+        appManager.registerApp('calculator', calculator);
     </script>
 </body>
 </html>
